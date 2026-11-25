@@ -37,7 +37,7 @@ class WheelController extends Controller
      */
     public function spin(): JsonResponse
     {
-         $result = DB::transaction(function () {
+        $result = DB::transaction(function () {
             // lockForUpdate: dua orang spin bersamaan tidak akan memakai stok yang sama
             $prizes = Prize::where('stock', '>', 0)
                 ->orderBy('sort_order')->orderBy('id')
@@ -48,9 +48,22 @@ class WheelController extends Controller
             }
 
             $snapshot = $prizes->map(fn (Prize $p) => $p->toWheel())->values();
-            $index    = random_int(0, $prizes->count() - 1);
-            $winner   = $prizes[$index];
-            $payload  = $winner->toWheel();
+            $reduceGrandPrizeOdds = Prize::areGrandPrizeOddsReduced();
+            $weights = $prizes->map(fn (Prize $prize) => $prize->drawWeight($reduceGrandPrizeOdds));
+            $ticket = random_int(1, $weights->sum());
+            $index = 0;
+
+            foreach ($weights as $weight) {
+                if ($ticket <= $weight) {
+                    break;
+                }
+
+                $ticket -= $weight;
+                $index++;
+            }
+
+            $winner = $prizes[$index];
+            $payload = $winner->toWheel();
 
             Winner::create([
                 'prize_id'   => $winner->id,
