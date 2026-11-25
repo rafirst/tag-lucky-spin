@@ -18,7 +18,7 @@ class Prize extends Model
         'is_grand'   => 'boolean',
         'sort_order' => 'integer',
     ];
-
+    
     public function winners(): HasMany
     {
         return $this->hasMany(Winner::class);
